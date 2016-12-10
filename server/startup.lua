@@ -1,1 +1,1 @@
-print("OTA is success")
+print("It works!")
