@@ -1,15 +1,15 @@
-_DEBUG = false -- True for enable debug message. False for disable it.
+_DEBUG = true -- True for enable debug message. False for disable it.
 station_cfg = {}
 station_cfg.ssid = ""
 station_cfg.pwd = ""
-station_cfg.bssid = "" -- If you have many same SSID in the area Please fill this with MAC Address. You should delete or comment this if you have only one SSID.
-startupmode = "OTA" -- Default : "OTA"
-OTA_version_link = "http://foo.bar/version.html" -- Version file URL
-OTA_startup_link = "http://foo.bar/startup.lua" -- Startup file URL
+--station_cfg.bssid = "" -- If you have many same SSID in the area Please fill this with MAC Address. You should delete this if you have only one SSID.
+startupmode = "OTA"
+OTA_version_link = "http://foo.bar/version.txt"
+OTA_startup_link = "http://foo.bar/startup.lua"
 
 function launchstartup()
 	-- Wait for all request done or you will get error message from HTTP Client.
-	tmr.alarm(3, 300, tmr.ALARM_SINGLE,function()
+	tmr.alarm(3, 1000, tmr.ALARM_SINGLE,function()
 		wifi.sta.disconnect()
 	end)
 	collectgarbage()
@@ -57,7 +57,8 @@ function startup()
 		startup_data = nil
 		download_version = nil
 		
-		-- Request for version file. Version file timer must more than startup file timer or it will crash.
+		-- Request for version file. Version file timer must less than startup file timer or it will crash.
+		-- Version file should not have whitespace
 		tmr.alarm(1, 500, tmr.ALARM_AUTO, function()
 			if wifi.sta.getip() ~= nil then
 				node.task.post(function()
