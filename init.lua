@@ -52,7 +52,7 @@ function startup()
 		
 		node.task.post(node.task.HIGH_PRIORITY, function()
 			tmr.alarm(1, 200, tmr.ALARM_AUTO, function()
-				if(wifi.sta.getip() ~= nil) then
+				if wifi.sta.getip() ~= nil then
 					http.get(OTA_version_link, nil, function(code, data)
 						if code == 200 and data ~= installed_version then
 							download_version = data
@@ -60,7 +60,7 @@ function startup()
 							if _DEBUG then print("New version found. Updating") end
 							tmr.stop(1)
 						elseif data == installed_version then
-							if _DEBUG then if _DEBUG then print("Installed version is lastest. Running startup file.") end end
+							if _DEBUG then print("Installed version is lastest. Running startup file.") end
 							tmr.stop(1)
 							tmr.stop(2)
 							launchstartup()
