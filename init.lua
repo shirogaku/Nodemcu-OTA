@@ -9,7 +9,7 @@ OTA_startup_link = "http://foo.bar/startup.lua"
 
 function launchstartup()
 	-- Wait for all request done or you will get error message from HTTP Client.
-	tmr.alarm(3, 1000, tmr.ALARM_SINGLE,function()
+	tmr.alarm(0, 2000, tmr.ALARM_SINGLE,function()
 		wifi.sta.disconnect()
 	end)
 	collectgarbage()
@@ -25,7 +25,6 @@ function startup()
         collectgarbage()
         if not file.exists("startup.lua") then
             if _DEBUG then print("Startup script not found.") end
-            file.close()
             return
         else
             if _DEBUG then print("Launching startup script.") end
@@ -33,11 +32,7 @@ function startup()
         end
     else
         if _DEBUG then print("Begin OTA Update.") end
-        if file.exists("version.txt") then
-            file.open("version.txt","r")
-            installed_version = file.readline()
-            file.close()
-        else
+        if not file.exists("version.txt") or not file.exists("startup.lua") then
             if _DEBUG then print("Creating version file and startup file.") end
             file.open("version.txt", "w")
             file.writeline("1")
@@ -45,75 +40,70 @@ function startup()
             file.open("startup.lua", "w")
             file.write("print(\"This is dummy script. Please upload script as startup.lua\")")
             file.close()
+        else
+            file.open("version.txt","r")
+            installed_version = file.readline()
+            file.close()
         end
         
-        wifi.setmode(wifi.STATION)
-        wifi.sta.config(station_cfg)
-		
-		
 		is_need_update = false
-		
 		get_version_data = nil
 		startup_data = nil
 		download_version = nil
 		
-		-- Request for version file. Version file timer must less than startup file timer or it will crash.
-		-- Version file should not have whitespace
-		tmr.alarm(1, 500, tmr.ALARM_AUTO, function()
-			if wifi.sta.getip() ~= nil then
-				node.task.post(function()
-					http.get(OTA_version_link, nil, function(code, get_version_data)
-						if code == 200 and get_version_data ~= installed_version then
-							download_version = get_version_data
-							is_need_update = true
-							if _DEBUG then print("New version found. Updating") end
-							tmr.stop(1)
-						elseif get_version_data == installed_version then
-							if _DEBUG then print("Installed version is lastest. Running startup file.") end 
-							tmr.stop(1)
-							tmr.stop(2)
-							launchstartup()
-						else
-							if _DEBUG then print("Version file not found. Running startup file") end
-							tmr.stop(1)
-							tmr.stop(2)
-							launchstartup()
+        wifi.setmode(wifi.STATION)
+        wifi.sta.config(station_cfg)
+		wifi.sta.eventMonReg(wifi.STA_GOTIP,function()
+			node.task.post(function()
+				http.get(OTA_version_link, nil, function(code, get_version_data)
+				if code == 200 and get_version_data ~= installed_version then
+					download_version = get_version_data
+					is_need_update = true
+					if _DEBUG then print("New version found. Updating") end
+					elseif get_version_data == installed_version then
+						if _DEBUG then print("Installed version is lastest. Running startup file.") end 
+						tmr.stop(0)
+						launchstartup()
+					else
+						if _DEBUG then print("Version file not found. Running startup file") end
+						tmr.stop(0)
+						launchstartup()
+					end
+				end
+				)
+			end
+			)
+			
+			tmr.alarm(0, 1000, tmr.ALARM_AUTO, function()
+				if is_need_update == true then
+					node.task.post(function()
+						http.get(OTA_startup_link, nil, function(code, startup_data)
+							if code == 200 and startup_data ~= nil then
+								file.open("startup.lua", "w")
+								file.write(startup_data)
+								file.close()
+								file.open("version.txt", "w")
+								file.write(download_version)
+								file.close()
+								if _DEBUG then print("Update completed. Running startup file.") end
+								tmr.stop(0)
+								launchstartup()
+							else
+								if _DEBUG then print("Couldn't Download startup file. Restarting.") end
+								tmr.stop(0)
+								launchstartup()
+							end
 						end
+						)
 					end
 					)
 				end
-				)
 			end
-		end
-		)
+			)
+		end)
 		
-		-- Request for startup file.
-		tmr.alarm(2, 1000, tmr.ALARM_AUTO, function()
-			if is_need_update == true then
-				node.task.post(function()
-				http.get(OTA_startup_link, nil, function(code, startup_data)
-					if code == 200 and startup_data ~= nil then
-						file.open("startup.lua", "w")
-						file.write(startup_data)
-						file.close()
-						file.open("version.txt", "w")
-						file.write(download_version)
-						file.close()
-						if _DEBUG then print("Update completed. Running startup file.") end
-						tmr.stop(2)
-						launchstartup()
-					else
-						if _DEBUG then print("Couldn't Download startup file. Restarting.") end
-						tmr.stop(2)
-						launchstartup()
-					end
-				end
-				)
-				end
-				)
-			end
-		end
-		)
+		wifi.sta.eventMonStart()
+		
 	end
 end
 
