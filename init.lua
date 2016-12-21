@@ -7,11 +7,9 @@ startupmode = "OTA"
 OTA_version_link = "http://foo.bar/version.txt"
 OTA_startup_link = "http://foo.bar/startup.lua"
 
-function launchstartup()
-	-- Wait for all request done or you will get error message from HTTP Client.
-	tmr.alarm(0, 2000, tmr.ALARM_SINGLE,function()
-		wifi.sta.disconnect()
-	end)
+function launchstartupOTA()
+	tmr.stop(0)
+	wifi.sta.disconnect()
 	collectgarbage()
 	dofile("startup.lua")
 end
@@ -51,8 +49,7 @@ function startup()
 		startup_data = nil
 		download_version = nil
 		
-        wifi.setmode(wifi.STATION)
-        wifi.sta.config(station_cfg)
+        wifi.setmode(wifi.STATION, false)
 		wifi.sta.eventMonReg(wifi.STA_GOTIP,function()
 			node.task.post(function()
 				http.get(OTA_version_link, nil, function(code, get_version_data)
@@ -60,19 +57,21 @@ function startup()
 					download_version = get_version_data
 					is_need_update = true
 					if _DEBUG then print("New version found. Updating") end
-					elseif get_version_data == installed_version then
+					if get_version_data == installed_version then
 						if _DEBUG then print("Installed version is lastest. Running startup file.") end 
-						tmr.stop(0)
-						launchstartup()
+						launchstartupOTA()
 					else
-						if _DEBUG then print("Version file not found. Running startup file") end
-						tmr.stop(0)
-						launchstartup()
+						if _DEBUG then print("Version file not found. Running startup file.") end
+						launchstartupOTA()
 					end
+				else
+					if _DEBUG then print("OTA service unavailable. Running startup file.") end
+					launchstartupOTA()
 				end
-				)
 			end
 			)
+		end
+		)
 			
 			tmr.alarm(0, 1000, tmr.ALARM_AUTO, function()
 				if is_need_update == true then
@@ -86,12 +85,10 @@ function startup()
 								file.write(download_version)
 								file.close()
 								if _DEBUG then print("Update completed. Running startup file.") end
-								tmr.stop(0)
-								launchstartup()
+								launchstartupOTA()
 							else
 								if _DEBUG then print("Couldn't Download startup file. Restarting.") end
-								tmr.stop(0)
-								launchstartup()
+								launchstartupOTA()
 							end
 						end
 						)
@@ -103,7 +100,7 @@ function startup()
 		end)
 		
 		wifi.sta.eventMonStart()
-		
+		wifi.sta.config(station_cfg)
 	end
 end
 
