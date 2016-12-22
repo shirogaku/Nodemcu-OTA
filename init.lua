@@ -7,9 +7,14 @@ startupmode = "OTA"
 OTA_version_link = "http://foo.bar/version.txt"
 OTA_startup_link = "http://foo.bar/startup.lua"
 
-function launchstartupOTA()
+function launchstartupOTASuccess()
 	tmr.stop(0)
 	wifi.sta.disconnect()
+	collectgarbage()
+	dofile("startup.lua")
+end
+
+function launchstartupOTAFail()
 	collectgarbage()
 	dofile("startup.lua")
 end
@@ -59,14 +64,14 @@ function startup()
 					if _DEBUG then print("New version found. Updating") end
 					if get_version_data == installed_version then
 						if _DEBUG then print("Installed version is lastest. Running startup file.") end 
-						launchstartupOTA()
+						launchstartupOTASuccess()
 					else
 						if _DEBUG then print("Version file not found. Running startup file.") end
-						launchstartupOTA()
+						launchstartupOTASuccess()
 					end
 				else
 					if _DEBUG then print("OTA service unavailable. Running startup file.") end
-					launchstartupOTA()
+					launchstartupOTASuccess()
 				end
 			end
 			)
@@ -85,10 +90,10 @@ function startup()
 								file.write(download_version)
 								file.close()
 								if _DEBUG then print("Update completed. Running startup file.") end
-								launchstartupOTA()
+								launchstartupOTASuccess()
 							else
 								if _DEBUG then print("Couldn't Download startup file. Restarting.") end
-								launchstartupOTA()
+								launchstartupOTASuccess()
 							end
 						end
 						)
@@ -97,6 +102,21 @@ function startup()
 				end
 			end
 			)
+		end)
+		
+		wifi.sta.eventMonReg(wifi.STA_WRONGPWD, function()
+			if _DEBUG then print("Wrong password. Running startup file.") end
+			launchstartupOTAFail()
+		end)
+		
+		wifi.sta.eventMonReg(wifi.STA_APNOTFOUND, function()
+			if _DEBUG then print("Access point not found. Running startup file.") end
+			launchstartupOTAFail()
+		end)
+		
+		wifi.sta.eventMonReg(wifi.STA_FAIL, function()
+			if _DEBUG then print("Failed to connect. Running startup file.") end
+			launchstartupOTAFail()
 		end)
 		
 		wifi.sta.eventMonStart()
