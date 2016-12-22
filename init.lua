@@ -58,25 +58,21 @@ function startup()
 		wifi.sta.eventMonReg(wifi.STA_GOTIP,function()
 			node.task.post(function()
 				http.get(OTA_version_link, nil, function(code, get_version_data)
-				if code == 200 and get_version_data ~= installed_version then
-					download_version = get_version_data
-					is_need_update = true
-					if _DEBUG then print("New version found. Updating") end
-					if get_version_data == installed_version then
+					if code == 200 and get_version_data ~= installed_version then
+						download_version = get_version_data
+						is_need_update = true
+						if _DEBUG then print("New version found. Updating") end
+					elseif code == 200 and get_version_data == installed_version then
 						if _DEBUG then print("Installed version is lastest. Running startup file.") end 
 						launchstartupOTASuccess()
 					else
-						if _DEBUG then print("Version file not found. Running startup file.") end
+						if _DEBUG then print("OTA service unavailable. Running startup file.") end
 						launchstartupOTASuccess()
 					end
-				else
-					if _DEBUG then print("OTA service unavailable. Running startup file.") end
-					launchstartupOTASuccess()
 				end
+				)
 			end
 			)
-		end
-		)
 			
 			tmr.alarm(0, 1000, tmr.ALARM_AUTO, function()
 				if is_need_update == true then
