@@ -10,11 +10,13 @@ OTA_startup_link = "http://foo.bar/startup.lua"
 function launchstartupOTASuccess()
 	tmr.stop(0)
 	wifi.sta.disconnect()
+	wifi.sta.eventMonStop(1)
 	collectgarbage()
 	dofile("startup.lua")
 end
 
 function launchstartupOTAFail()
+	wifi.sta.eventMonStop(1)
 	collectgarbage()
 	dofile("startup.lua")
 end
